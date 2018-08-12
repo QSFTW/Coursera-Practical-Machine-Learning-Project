@@ -1,0 +1,74 @@
+#Prediction on Manners on how Exercises are Done  
+##Data and package loading  
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+training <- read.csv("pml-training.csv")
+testing <- testing <- read.csv("pml-testing.csv")
+```
+
+##Preprocessing and Explorary Data Analysis
+```{r}
+str(training,list.len =160)
+```
+  
+There are 19622 records and 160 variables. However, there are many missing values for some of the variables at a glance. It is sensible to remove variables which has most of its values missing and the first 7 columns which are index, name of participants and timestamps.  
+```{r}
+indexToRemove <- which(colSums(is.na(training)|training=="")>0.9*dim(training)[1])
+trainClean <- training[,-indexToRemove]
+testClean <- testing[,-indexToRemove]
+trainClean <- trainClean[,-c(1:7)]
+testClean <- testClean[,-c(1:7)]
+length(which(complete.cases(trainClean)))
+```
+  
+It can be observed now that all 19622 rows of record has no more missing values.  
+
+##Prepare Dataset for Prediction
+```{r}
+intrain <- createDataPartition(trainClean$classe, p=0.7, list=F)
+trainSet <- trainClean[intrain,]
+testSet <- trainClean[-intrain,]
+rm(trainClean)
+```
+  
+##Model Building  
+###Decision Tree  
+```{r cache=T}
+set.seed(23333)
+DTmodel<- train(classe~., trainSet,method = "rpart")
+```
+  
+Prediction On Testset
+```{r}
+DTpred <- predict(DTmodel, testSet)
+DT_ConMat <- confusionMatrix(testSet$classe,DTpred)
+DT_ConMat$overall
+```
+The Accuracy is only 49.5% as shown.
+
+##Random Forest
+```{r cache=T}
+RFmodel<- randomForest(classe~., trainSet)
+RFpred <- predict(RFmodel, testSet)
+RF_ConMat <- confusionMatrix(RFpred, testSet$classe)
+RF_ConMat$overall
+```
+  
+The accuracy is 99.5% which is very accurate.  
+
+```{r}
+plot(RFmodel)
+```
+  
+From the graph, it can be seen that the error rate remains fairly constant from 100 to 500 trees. 
+
+##Prediction on test dataset
+Since random forest yield better accuracy, it is used to predict the "classe" of the test dataset
+```{r}
+final_pred <- predict(RFmodel,testClean)
+final_pred
+```
+
